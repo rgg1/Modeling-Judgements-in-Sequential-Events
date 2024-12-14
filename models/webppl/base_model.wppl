@@ -1,0 +1,233 @@
+// Helper function to adjust probability based on previous outcome
+var adjustProb = function(theta, alpha, prevOutcome) {
+    var newProb = prevOutcome ? 
+      theta + alpha * (1 - theta) : 
+      theta - alpha * theta;
+    return Math.min(Math.max(newProb, 0), 1);
+};
+  
+// Domain-specific prior parameters
+var domainPriors = {
+    'coin': {
+        thetaMean: 0.5,
+        thetaStrength: 20,  // Strong prior near 0.5
+        alphaMean: 0,       // Prior belief in independence
+        alphaStrength: 10   // Fairly strong prior
+    },
+    'basketball': {
+        thetaMean: 0.7,     // Players make ~70% of free throws
+        thetaStrength: 5,   // Weaker prior - more uncertainty
+        alphaMean: 0.2,     // Prior belief in hot hand
+        alphaStrength: 3    // Weak prior - learn from data
+    },
+    'weather': {
+        thetaMean: 0.6,     // Base rate of sunny days
+        thetaStrength: 8,   // Medium strength prior
+        alphaMean: 0.3,     // Strong weather persistence
+        alphaStrength: 5    // Medium prior
+    }
+};
+
+// Generate a sequence with dependencies
+var generateDependentSequence = function(theta, alpha, length) {
+    var generator = function(n) {
+        var prevOutcome = n == 0 ? flip(theta) :
+        flip(adjustProb(theta, alpha, generator(n-1)));
+        return prevOutcome;
+    };
+
+    return map(function(i) { 
+        return generator(i);
+    }, _.range(length));
+};
+  
+// Get beta distribution parameters from mean and strength
+var getBetaParams = function(mean, strength) {
+    var a = mean * strength;
+    var b = (1 - mean) * strength;
+    return {a: a, b: b};
+};
+  
+// Inference model with domain-specific priors
+var inferParams = function(observedSequence, domain) {
+    var priors = domainPriors[domain];
+
+    return Infer({method: 'MCMC', samples: 2000}, function() {
+        // Sample parameters from domain-specific priors
+        var thetaParams = getBetaParams(priors.thetaMean, priors.thetaStrength);
+        var theta = beta(thetaParams.a, thetaParams.b);
+        
+        // Use a scaled beta for alpha to center it around domain mean
+        var alphaParams = getBetaParams((priors.alphaMean + 0.5)/2, priors.alphaStrength);
+        var alpha = (beta(alphaParams.a, alphaParams.b) * 2 - 1) * 0.5;  // Scale to [-0.5, 0.5]
+        
+        // Generate sequence with these parameters
+        var simulatedSequence = generateDependentSequence(theta, alpha, observedSequence.length);
+        
+        // Condition on matching the observed sequence
+        factor(sum(map2(
+        function(sim, obs) {
+            return sim == obs ? 0 : -1;
+        },
+        simulatedSequence,
+        observedSequence
+        )));
+        
+        return {theta: theta, alpha: alpha};
+    });
+};
+  
+// Function to make predictions about next outcome
+var predictNext = function(sequence, domain) {
+    var posterior = inferParams(sequence, domain);
+
+    return expectation(posterior, function(params) {
+        var prevOutcome = sequence[sequence.length - 1];
+        var prob = adjustProb(params.theta, params.alpha, prevOutcome);
+        return prob;
+    });
+};
+  
+// Get confidence in prediction (uncertainty)
+var getPredictionConfidence = function(sequence, domain) {
+    var posterior = inferParams(sequence, domain);
+
+    var predictions = repeat(100, function() {
+        var params = sample(posterior);
+        var prevOutcome = sequence[sequence.length - 1];
+        return adjustProb(params.theta, params.alpha, prevOutcome);
+    });
+
+    return {
+        mean: sum(predictions) / predictions.length,
+        variance: sum(map(function(x) { 
+            return Math.pow(x - (sum(predictions) / predictions.length), 2);
+        }, predictions)) / predictions.length
+    };
+};
+
+// Analyze streak patterns in sequence
+var analyzeStreaks = function(sequence, domain) {
+    var posterior = inferParams(sequence, domain);
+    
+    // Get runs of true and false
+    var getRuns = function(seq) {
+        var helper = function(index, currentValue, currentLength, accumulatedRuns) {
+            if (index >= seq.length) {
+                return accumulatedRuns.concat([{value: currentValue, length: currentLength}]);
+            }
+            
+            if (seq[index] === currentValue) {
+                return helper(index + 1, currentValue, currentLength + 1, accumulatedRuns);
+            } else {
+                return helper(index + 1, seq[index], 1, 
+                            accumulatedRuns.concat([{value: currentValue, length: currentLength}]));
+            }
+        };
+        
+        if (seq.length === 0) return [];
+        return helper(1, seq[0], 1, []);
+    };
+    
+    var runs = getRuns(sequence);
+    
+    // Analyze each run
+    var runAnalysis = map(function(run) {
+        var predictionAfterRun = expectation(posterior, function(params) {
+            return adjustProb(params.theta, params.alpha, run.value);
+        });
+        
+        return {
+            type: run.value ? "success" : "failure",
+            length: run.length,
+            predictionAfter: predictionAfterRun
+        };
+    }, runs);
+    
+    console.log("\nStreak Analysis for " + domain + ":");
+    map(function(run) {
+        console.log("After " + run.length + " " + run.type + "(s): " + 
+                    "Predicted prob = " + run.predictionAfter.toFixed(3));
+    }, runAnalysis);
+    
+    return runAnalysis;
+};
+  
+// Modify testAcrossDomains to include streak analysis
+var testAcrossDomains = function() {
+    var domains = ['coin', 'basketball', 'weather'];
+    
+    map(function(domain) {
+      console.log("\nTesting " + domain + " domain:");
+      
+      // Generate sequence using domain priors
+      var priors = domainPriors[domain];
+      var trueTheta = beta(priors.thetaMean * 20, (1-priors.thetaMean) * 20);
+      var trueAlpha = priors.alphaMean;
+      
+      var testSequence = generateDependentSequence(trueTheta, trueAlpha, 10);
+      console.log("Sequence: " + testSequence);
+      
+      // Get predictions
+      var nextProb = predictNext(testSequence, domain);
+      var confidence = getPredictionConfidence(testSequence, domain);
+      
+      console.log("Prediction for next outcome: " + nextProb.toFixed(3));
+      console.log("Prediction confidence: " + confidence.variance.toFixed(3));
+      
+      // Add streak analysis
+      analyzeStreaks(testSequence, domain);
+      
+    }, domains);
+};
+  
+// Run tests
+testAcrossDomains();
+
+// Add this function to our code:
+
+// Modify our runExperiment function to output less verbose results
+var runExperiment = function(params) {
+    var results = [];
+    var domains = ['coin', 'basketball', 'weather'];
+    var sequenceLengths = [5, 10];  // Reduced to 5 and 10 for clarity
+    var repetitions = 3;  // Reduced to 3 repetitions
+    
+    map(function(domain) {
+        map(function(length) {
+            repeat(repetitions, function() {
+                var priors = domainPriors[domain];
+                var trueTheta = beta(priors.thetaMean * 20, (1-priors.thetaMean) * 20);
+                var trueAlpha = priors.alphaMean;
+                var sequence = generateDependentSequence(trueTheta, trueAlpha, length);
+                var prediction = predictNext(sequence, domain);
+                var confidence = getPredictionConfidence(sequence, domain);
+                
+                // Store more concise results
+                results.push({
+                    domain: domain,
+                    length: length,
+                    sequence: sequence,
+                    prediction: prediction.toFixed(3),
+                    confidence: confidence.variance.toFixed(3)
+                });
+            });
+        }, sequenceLengths);
+    }, domains);
+    
+    // Print results in a more readable format
+    console.log("=== EXPERIMENT RESULTS ===");
+    map(function(result) {
+        console.log("\nDomain: " + result.domain);
+        console.log("Length: " + result.length);
+        console.log("Sequence: " + result.sequence);
+        console.log("Next prediction: " + result.prediction);
+        console.log("Confidence: " + result.confidence);
+        console.log("---");
+    }, results);
+    
+    return results;
+};
+
+// Run experiment with reduced output
+runExperiment();

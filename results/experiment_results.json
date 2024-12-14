@@ -1,0 +1,173 @@
+[
+    {
+      "domain": "coin",
+      "length": 5,
+      "sequence": [ true, true, false, false, true ],
+      "prediction": 0.430,
+      "confidence": 0.016
+    },
+    {
+      "domain": "coin",
+      "length": 5,
+      "sequence": [ false, true, true, false, true ],
+      "prediction": 0.380,
+      "confidence": 0.013
+    },
+    {
+      "domain": "coin",
+      "length": 5,
+      "sequence": [ false, false, false, true, false ],
+      "prediction": 0.618,
+      "confidence": 0.025
+    },
+    {
+      "domain": "coin",
+      "length": 10,
+      "sequence": [
+        false, true, false,
+        false, true, true,
+        true,  true, true,
+        true
+      ],
+      "prediction": 0.414,
+      "confidence": 0.013
+    },
+    {
+      "domain": "coin",
+      "length": 10,
+      "sequence": [
+        true,  true, false,
+        false, true, false,
+        true,  true, false,
+        false
+      ],
+      "prediction": 0.433,
+      "confidence": 0.009
+    },
+    {
+      "domain": "coin",
+      "length": 10,
+      "sequence": [
+        true,  false, true,
+        false, false, false,
+        true,  true,  true,
+        false
+      ],
+      "prediction": 0.665,
+      "confidence": 0.014
+    },
+    {
+      "domain": "basketball",
+      "length": 5,
+      "sequence": [ true, false, true, true, true ],
+      "prediction": 0.693,
+      "confidence": 0.010
+    },
+    {
+      "domain": "basketball",
+      "length": 5,
+      "sequence": [ true, false, true, true, false ],
+      "prediction": 0.760,
+      "confidence": 0.032
+    },
+    {
+      "domain": "basketball",
+      "length": 5,
+      "sequence": [ true, false, false, false, true ],
+      "prediction": 0.517,
+      "confidence": 0.068
+    },
+    {
+      "domain": "basketball",
+      "length": 10,
+      "sequence": [
+        true,  false, true,
+        true,  true,  true,
+        true,  true,  false,
+        false
+      ],
+      "prediction": 0.606,
+      "confidence": 0.002
+    },
+    {
+      "domain": "basketball",
+      "length": 10,
+      "sequence": [
+        true,  true,  true,
+        true,  false, true,
+        false, false, true,
+        false
+      ],
+      "prediction": 0.788,
+      "confidence": 0.032
+    },
+    {
+      "domain": "basketball",
+      "length": 10,
+      "sequence": [
+        false, true,  false,
+        true,  true,  true,
+        true,  false, true,
+        true
+      ],
+      "prediction": 0.775,
+      "confidence": 0.003
+    },
+    {
+      "domain": "weather",
+      "length": 5,
+      "sequence": [ true, true, true, true, false ],
+      "prediction": 0.735,
+      "confidence": 0.029
+    },
+    {
+      "domain": "weather",
+      "length": 5,
+      "sequence": [ true, true, false, true, true ],
+      "prediction": 0.724,
+      "confidence": 0.020
+    },
+    {
+      "domain": "weather",
+      "length": 5,
+      "sequence": [ true, false, true, false, true ],
+      "prediction": 0.486,
+      "confidence": 0.032
+    },
+    {
+      "domain": "weather",
+      "length": 10,
+      "sequence": [
+        true,  true,  false,
+        true,  true,  false,
+        false, false, true,
+        true
+      ],
+      "prediction": 0.828,
+      "confidence": 0.011
+    },
+    {
+      "domain": "weather",
+      "length": 10,
+      "sequence": [
+        true,  true, true,
+        false, true, true,
+        false, true, true,
+        true
+      ],
+      "prediction": 0.701,
+      "confidence": 0.013
+    },
+    {
+      "domain": "weather",
+      "length": 10,
+      "sequence": [
+        true,  true,  false,
+        true,  true,  true,
+        true,  false, true,
+        false
+      ],
+      "prediction": 0.631,
+      "confidence": 0.007
+    }
+]

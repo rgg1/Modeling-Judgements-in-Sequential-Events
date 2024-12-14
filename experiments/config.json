@@ -1,0 +1,5 @@
+{
+    "n_trials": 100,
+    "conditions": ["coin", "basketball", "weather"],
+    "sequence_length": 10
+}

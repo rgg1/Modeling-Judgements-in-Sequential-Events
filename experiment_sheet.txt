@@ -1,0 +1,49 @@
+
+SEQUENTIAL PREDICTION STUDY
+Participant ID: _____
+
+Instructions:
+For each sequence shown below:
+1. Predict probability (0-100%) that next outcome will be True
+2. Rate your confidence (0-100%) in your prediction
+3. Briefly explain your reasoning
+
+True = Heads (coin) / Made shot (basketball) / Sunny (weather)
+False = Tails (coin) / Missed shot (basketball) / Rainy (weather)
+
+
+COIN SEQUENCES
+
+Sequence: [True, True, False, False, True]
+Your prediction (0-100%): _____
+Your confidence (0-100%): _____
+Your reasoning: ______________________________
+
+Sequence: [True, False, True, False, False, False, True, True, True, False]
+Your prediction (0-100%): _____
+Your confidence (0-100%): _____
+Your reasoning: ______________________________
+
+BASKETBALL SEQUENCES
+
+Sequence: [True, False, True, True, True]
+Your prediction (0-100%): _____
+Your confidence (0-100%): _____
+Your reasoning: ______________________________
+
+Sequence: [True, False, True, True, True, True, True, True, False, False]
+Your prediction (0-100%): _____
+Your confidence (0-100%): _____
+Your reasoning: ______________________________
+
+WEATHER SEQUENCES
+
+Sequence: [True, True, True, True, False]
+Your prediction (0-100%): _____
+Your confidence (0-100%): _____
+Your reasoning: ______________________________
+
+Sequence: [True, True, False, True, True, False, False, False, True, True]
+Your prediction (0-100%): _____
+Your confidence (0-100%): _____
+Your reasoning: ______________________________

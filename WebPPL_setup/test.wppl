@@ -1,0 +1,6 @@
+// test.wppl
+var coin = flip(0.5); // Simulate a coin flip with a 50% chance of true
+var die = randomInteger(6) + 1; // Simulate rolling a 6-sided die
+
+console.log("Coin flip result: " + (coin ? "Heads" : "Tails"));
+console.log("Die roll result: " + die);
