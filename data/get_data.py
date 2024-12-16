@@ -3,11 +3,11 @@ import numpy as np
 
 # Part 1: Sequential Predictions
 def create_sequential_predictions_df():
-    # Define the sequences (swap T and H to be more intuitive)
-    sequence1 = ['H', 'T', 'T', 'H', 'T', 'H', 'H', 'H', 'T', 'T']  # Was: ['T', 'H', 'H', 'T', 'H', 'T', 'T', 'T', 'H', 'H']
-    sequence2 = ['T', 'H', 'T', 'T', 'H', 'T', 'H', 'H', 'T', 'H']  # Was: ['H', 'T', 'H', 'H', 'T', 'H', 'T', 'T', 'H', 'T']
+    sequence1 = ['H', 'T', 'T', 'H', 'T', 'H', 'H', 'H', 'T', 'T']
+    sequence2 = ['T', 'H', 'T', 'T', 'H', 'T', 'H', 'H', 'T', 'H']
     
-    # Create participant data
+    # Put human data into the `data` dictionary
+    # Says each participant's predictions for each domain (coin/basketball) in each sequence above
     data = {
         'sequence1': {
             'coin': {
@@ -42,7 +42,7 @@ def create_sequential_predictions_df():
         seq_data = data[f'sequence{seq_num}']
         for domain in ['coin', 'basketball']:
             for participant, predictions in seq_data[domain].items():
-                # Start from turn 2 (index 1) since turn 1 was given
+                # Start from turn 2 (index 1) since turn 1 was given (they only predict turns 2-10)
                 for turn, (true_outcome, prediction) in enumerate(zip(sequence[1:], predictions), 1):
                     rows.append({
                         'sequence_number': seq_num,
@@ -55,9 +55,8 @@ def create_sequential_predictions_df():
                     })
     
     df_sequential = pd.DataFrame(rows)
-    
-    # Convert T/H to True/False to match model output
-    # Change the mapping in create_sequential_predictions_df():
+
+    # Map outcomes to binary values
     df_sequential['true_outcome'] = df_sequential['true_outcome'].map({'H': 1, 'T': 0})
     df_sequential['prediction'] = df_sequential['prediction'].map({'H': 1, 'T': 0})
     df_sequential['previous_outcome'] = df_sequential['previous_outcome'].map({'H': 1, 'T': 0})
@@ -69,6 +68,8 @@ def create_domain_classification_df():
     alternating_sequences = ['TTFFTFTFFT', 'TFTFTFTFTF']
     streaky_sequences = ['TTTFFTTFFF', 'TTTTTFFFFF']
     
+    # Put human data into the `data` dictionary
+    # Says each participant's predictions for each domain (coin/basketball) in each sequence above
     data = {
         'alternating': {
             'Participant 1': ['Coin', 'Coin'],
@@ -97,7 +98,10 @@ def create_domain_classification_df():
     df_classification = pd.DataFrame(rows)
     return df_classification
 
-# Part 3: Luck vs Skill Ratings
+# Part 3: Luck vs Skill Ratings (not used in final report)
+# The original experiment was asking participants to rate the luck vs skill of the sequences,
+# as in a 0 means they think the source was a game that's all luck, and 100 means they think
+# the source was a game that's all skill.
 def create_skill_ratings_df():
     alternating_sequences = ['TTFFTFTFFT', 'TFTFTFTFTF']
     streaky_sequences = ['TTTFFTTFFF', 'TTTTTFFFFF']
