@@ -202,8 +202,6 @@ map(function(sequence) {
     console.log("If basketball, probability of True: " + bballNextProb.toFixed(3));
 }, testSequences);
 
-// Helper function and domain priors remain the same...
-
 // Define the exact sequences from our human experiments
 var experimentSequences = {
     sequential: [
@@ -225,7 +223,7 @@ var experimentSequences = {
 // Run model for sequential predictions
 var getSequentialPredictions = function(sequence) {
     var predictions = map(function(i) {
-        if (i === 0) return null;  // Skip first position as in human experiment
+        if (i === 0) return null;  // Skip first position as in human experiment (first turn is given)
         
         // Get sequence up to current position
         var prevSequence = sequence.slice(0, i);
@@ -257,33 +255,33 @@ var getSequenceClassification = function(sequence) {
     };
 };
 
-// Generate samples from prior distributions - reduced from 1000 to 100 samples
+// Generate samples from prior distributions
 var generatePriorSamples = function(domainPriors) {
     var domains = ['coin', 'basketball'];
     var coinPriors = domainPriors['coin'];
     var bballPriors = domainPriors['basketball'];
     
     return {
-        coin_theta: repeat(100, function() {  // Reduced from 1000
+        coin_theta: repeat(100, function() {
             return beta(coinPriors.thetaMean * coinPriors.thetaStrength, 
                        (1-coinPriors.thetaMean) * coinPriors.thetaStrength);
         }),
-        coin_alpha: repeat(100, function() {  // Reduced from 1000
+        coin_alpha: repeat(100, function() {
             return beta(coinPriors.alphaMean * coinPriors.alphaStrength,
                        (1-coinPriors.alphaMean) * coinPriors.alphaStrength);
         }),
-        basketball_theta: repeat(100, function() {  // Reduced from 1000
+        basketball_theta: repeat(100, function() {
             return beta(bballPriors.thetaMean * bballPriors.thetaStrength, 
                        (1-bballPriors.thetaMean) * bballPriors.thetaStrength);
         }),
-        basketball_alpha: repeat(100, function() {  // Reduced from 1000
+        basketball_alpha: repeat(100, function() {
             return beta(bballPriors.alphaMean * bballPriors.alphaStrength,
                        (1-bballPriors.alphaMean) * bballPriors.alphaStrength);
         })
     };
 };
 
-// Analyze probability adjustments - reduced range from 10 to 6
+// Analyze probability adjustments
 var analyzeProbabilityAdjustments = function(domain) {
     var priors = domainPriors[domain];
     var theta = beta(priors.thetaMean * priors.thetaStrength, 
@@ -295,21 +293,20 @@ var analyzeProbabilityAdjustments = function(domain) {
         success_streaks: map(function(length) {
             var sequence = repeat(length, function() { return true; });
             return adjustProb(theta, alpha, priors.streakWeight, sequence);
-        }, _.range(1, 7)),  // Reduced from 11 to 7 (streaks of length 1-6)
+        }, _.range(1, 7)),
         failure_streaks: map(function(length) {
             var sequence = repeat(length, function() { return false; });
             return adjustProb(theta, alpha, priors.streakWeight, sequence);
-        }, _.range(1, 7))   // Reduced from 11 to 7
+        }, _.range(1, 7))
     };
 };
 
-// Analyze sequence characteristics - simplified output format
+// Analyze sequence characteristics
 var analyzeSequenceCharacteristics = function(sequence) {
     var streaks = countConsecutive(sequence);
     return {
         streakiness: streaks.length > 0 ? sum(streaks) / streaks.length : 0,
         maxStreak: streaks.length > 0 ? getMaxInArray(streaks) : 0,
-        // Removed proportionTrue and numTransitions as they're less essential
     };
 };
 
