@@ -125,13 +125,13 @@ def plot_streak_analysis(streak_analysis):
     for idx, domain in enumerate(domains, 1):
         plt.subplot(1, 2, idx)
         
-        # Plot human data with confidence intervals
+        # Plot human data
         human_data = streak_analysis['Human'][domain]
         plt.errorbar(human_data.index, human_data['mean'], 
                     yerr=human_data['sem'] * 1.96,  # 95% CI
                     fmt='o-', label='Human', capsize=5)
         
-        # Plot model data with confidence intervals
+        # Plot model data
         model_data = streak_analysis['Model'][domain]
         plt.errorbar(model_data.index, model_data['mean'],
                     yerr=model_data['sem'] * 1.96,  # 95% CI
