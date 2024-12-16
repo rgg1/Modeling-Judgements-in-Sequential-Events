@@ -1,8 +1,4 @@
 node_modules
 myenv/
 __pycache__/
-.ipynb_checkpoints/
-*.pyc
-data/*.csv
-results/*.pdf
 results/
