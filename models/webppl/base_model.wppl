@@ -49,7 +49,7 @@ var domainPriors = {
     }
 };
 
-// Generate a sequence with dependencies
+// Generate a sequence with specific domain model parameters
 var generateDependentSequence = function(theta, alpha, streakWeight, length) {
     var generator = function(n, acc) {
         if (n <= 0) return acc;
@@ -120,13 +120,13 @@ var countConsecutive = function(arr) {
     return helper(1, arr[0], 1, []);
 };
 
-// Modified sequence classification model
+// Sequence classification model
 var classifySequence = function(sequence) {
     return Infer({method: 'MCMC', samples: 2000}, function() {
         var domain = flip(0.5) ? 'coin' : 'basketball';
         var priors = domainPriors[domain];
         
-        // Calculate streakiness score using functional approach
+        // Calculate streakiness score
         var streakScore = function(seq) {
             var streaks = countConsecutive(seq);
             return streaks.length > 0 ? getMaxInArray(streaks) : 0;
@@ -178,7 +178,6 @@ var getStreakiness = function(sequence) {
     return sum(runs) / runs.length;
 };
 
-// Test sequences
 var testSequences = [
     [true, true, false, false, true, false, true, false, false, true],  // alternating
     [true, true, true, false, false, true, true, false, false, false]   // streaky
@@ -202,7 +201,7 @@ map(function(sequence) {
     console.log("If basketball, probability of True: " + bballNextProb.toFixed(3));
 }, testSequences);
 
-// Define the exact sequences from our human experiments
+// Define the actual sequences from our human experiments
 var experimentSequences = {
     sequential: [
         {sequence: [true, false, false, true, false, true, true, true, false, false]},
@@ -255,61 +254,6 @@ var getSequenceClassification = function(sequence) {
     };
 };
 
-// Generate samples from prior distributions
-var generatePriorSamples = function(domainPriors) {
-    var domains = ['coin', 'basketball'];
-    var coinPriors = domainPriors['coin'];
-    var bballPriors = domainPriors['basketball'];
-    
-    return {
-        coin_theta: repeat(100, function() {
-            return beta(coinPriors.thetaMean * coinPriors.thetaStrength, 
-                       (1-coinPriors.thetaMean) * coinPriors.thetaStrength);
-        }),
-        coin_alpha: repeat(100, function() {
-            return beta(coinPriors.alphaMean * coinPriors.alphaStrength,
-                       (1-coinPriors.alphaMean) * coinPriors.alphaStrength);
-        }),
-        basketball_theta: repeat(100, function() {
-            return beta(bballPriors.thetaMean * bballPriors.thetaStrength, 
-                       (1-bballPriors.thetaMean) * bballPriors.thetaStrength);
-        }),
-        basketball_alpha: repeat(100, function() {
-            return beta(bballPriors.alphaMean * bballPriors.alphaStrength,
-                       (1-bballPriors.alphaMean) * bballPriors.alphaStrength);
-        })
-    };
-};
-
-// Analyze probability adjustments
-var analyzeProbabilityAdjustments = function(domain) {
-    var priors = domainPriors[domain];
-    var theta = beta(priors.thetaMean * priors.thetaStrength, 
-                    (1-priors.thetaMean) * priors.thetaStrength);
-    var alpha = beta(priors.alphaMean * priors.alphaStrength,
-                    (1-priors.alphaMean) * priors.alphaStrength);
-    
-    return {
-        success_streaks: map(function(length) {
-            var sequence = repeat(length, function() { return true; });
-            return adjustProb(theta, alpha, priors.streakWeight, sequence);
-        }, _.range(1, 7)),
-        failure_streaks: map(function(length) {
-            var sequence = repeat(length, function() { return false; });
-            return adjustProb(theta, alpha, priors.streakWeight, sequence);
-        }, _.range(1, 7))
-    };
-};
-
-// Analyze sequence characteristics
-var analyzeSequenceCharacteristics = function(sequence) {
-    var streaks = countConsecutive(sequence);
-    return {
-        streakiness: streaks.length > 0 ? sum(streaks) / streaks.length : 0,
-        maxStreak: streaks.length > 0 ? getMaxInArray(streaks) : 0,
-    };
-};
-
 // Results object
 var results = {
     sequentialPredictions: map(function(seqData) {
@@ -349,20 +293,6 @@ var results = {
             };
         }, experimentSequences.classification.streaky)
     },
-    
-    modelInternals: {
-        priorDistributions: generatePriorSamples(domainPriors),
-        probabilityAdjustments: {
-            coin: analyzeProbabilityAdjustments('coin'),
-            basketball: analyzeProbabilityAdjustments('basketball')
-        },
-        sequenceCharacteristics: {
-            alternating: map(analyzeSequenceCharacteristics,
-                experimentSequences.classification.alternating),
-            streaky: map(analyzeSequenceCharacteristics,
-                experimentSequences.classification.streaky)
-        }
-    }
 };
 
 // Print results
