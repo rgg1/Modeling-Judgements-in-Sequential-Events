@@ -17,7 +17,17 @@ def load_data():
         raise e
 
 def analyze_streak_influence(df, model_data):
-    """Analyze how streak length affects predictions"""
+    """
+    Analyze how streak length affects predictions
+
+    Args:
+        df: DataFrame with human predictions
+        model_data: Dictionary with model predictions
+
+    Returns:
+        streak_analysis: Dictionary with mean and SEM (standard error of the mean) for each streak length
+        correlations: Dictionary with Pearson correlation and p-value for each domain
+    """
     
     def get_streak_length(sequence, position):
         if position == 0:
@@ -82,7 +92,17 @@ def analyze_streak_influence(df, model_data):
     return streak_analysis, correlations
 
 def analyze_sequence_classification(classification_df, model_data):
-    """Compare human and model sequence classification"""
+    """
+    Compare human and model sequence classification
+
+    Args:
+        classification_df: DataFrame with human classifications
+        model_data: Dictionary with model predictions
+
+    Returns:
+        human_classifications: Proportion of human classifications as 'Basketball' for each sequence type
+        model_classifications: Mean probability of basketball classification for each sequence type in the model
+    """
     
     # Process human classifications
     human_classifications = classification_df.groupby(['sequence_type'])['prediction'].apply(
@@ -130,8 +150,17 @@ def plot_streak_analysis(streak_analysis):
     plt.savefig('results/streak_analysis.png')
 
 def analyze_transitions(df, model_data):
-    """Analyze how predictions change based on previous outcomes"""
-    
+    """
+    Analyze how predictions change based on previous outcomes
+
+    Args:
+        df: DataFrame with human predictions
+        model_data: Dictionary with model predictions
+
+    Returns:
+        human_transitions: Mean and SEM for human transitions
+        model_transitions: Mean and SEM for model transitions
+    """
     # Human transitions
     human_transitions = {}
     for domain in ['coin', 'basketball']:
@@ -190,7 +219,6 @@ def print_transition_analysis(human_transitions, model_transitions):
                   f"Predict 1 with probability {stats['mean']:.3f} (±{stats['sem']:.3f})")
             
 def plot_transition_analysis(human_transitions, model_transitions):
-    """Plot transition probabilities for both domains"""
     plt.figure(figsize=(12, 6))
     
     # Set up the bar positions
@@ -237,7 +265,6 @@ def plot_transition_analysis(human_transitions, model_transitions):
     plt.close()
 
 def plot_sequence_classification(human_class, model_class):
-    """Plot sequence classification results"""
     plt.figure(figsize=(10, 6))
     
     # Prepare data
@@ -269,7 +296,6 @@ def plot_sequence_classification(human_class, model_class):
     plt.close()
 
 def plot_streak_correlation(df, model_data, correlations):
-    """Plot correlation between streak length and predictions"""
     fig, axes = plt.subplots(2, 2, figsize=(15, 12))
     
     # Prepare data
@@ -306,7 +332,6 @@ def plot_streak_correlation(df, model_data, correlations):
                 x = model_df['streak_length']
                 y = model_df[f'{domain.lower()}_prediction']
             
-            # Create scatter plot with jitter
             x_jitter = x + np.random.normal(0, 0.05, len(x))
             ax.scatter(x_jitter, y, alpha=0.4)
             
@@ -367,17 +392,9 @@ def main():
     print_transition_analysis(human_transitions, model_transitions)
 
     print("Generating visualizations...")
-    
-    # Original streak analysis plot
     plot_streak_analysis(streak_analysis)
-    
-    # New transition analysis plot
     plot_transition_analysis(human_transitions, model_transitions)
-    
-    # New sequence classification plot
     plot_sequence_classification(human_class, model_class)
-    
-    # New streak correlation plot
     plot_streak_correlation(sequential_df, model_data, correlations)
     
     print("Visualizations saved in results directory.")
