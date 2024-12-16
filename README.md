@@ -67,7 +67,7 @@ scipy
    webppl test.wppl
    ```
 
-2. Generate the experimental data:
+2. Generate the experimental data (input human study results in this code, then run it to turn it into appropriate CSV files):
    ```bash
    python data/get_data.py
    ```
