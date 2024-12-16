@@ -1,233 +1,373 @@
-// Helper function to adjust probability based on previous outcome
-var adjustProb = function(theta, alpha, prevOutcome) {
-    var newProb = prevOutcome ? 
-      theta + alpha * (1 - theta) : 
-      theta - alpha * theta;
-    return Math.min(Math.max(newProb, 0), 1);
+// Helper function to adjust probability based on previous outcomes
+var adjustProb = function(theta, alpha, streakWeight, recentOutcomes) {
+    if (recentOutcomes.length === 0) return theta;
+    
+    var getStreakLength = function(outcomes) {
+        if (outcomes.length === 0) {
+            return 0;
+        }
+        var current = outcomes[outcomes.length - 1];
+    
+        var helper = function(index, streak) {
+            if (index < 0) {
+                return streak;
+            } else if (outcomes[index] === current) {
+                return helper(index - 1, streak + 1);
+            } else {
+                return streak;
+            }
+        };
+    
+        return helper(outcomes.length - 2, 1);
+    };    
+    
+    var streakLength = getStreakLength(recentOutcomes);
+    // Exponential growth in streak effect
+    var streakEffect = streakWeight * (1 - Math.exp(-alpha * streakLength));
+    var lastOutcome = recentOutcomes[recentOutcomes.length-1];
+    
+    return lastOutcome ? 
+        theta + streakEffect * (1 - theta) : 
+        theta - streakEffect * theta;
 };
-  
-// Domain-specific prior parameters
+
+// Domain-specific parameters
 var domainPriors = {
     'coin': {
-        thetaMean: 0.5,
+        thetaMean: 0.5,     
         thetaStrength: 20,  // Strong prior near 0.5
-        alphaMean: 0,       // Prior belief in independence
-        alphaStrength: 10   // Fairly strong prior
+        alphaMean: 0.05,    // Very slight tendency for alternation
+        alphaStrength: 15,  // Strong prior - coins should be "random"
+        streakWeight: 0.1   // Low impact of streaks
     },
     'basketball': {
-        thetaMean: 0.7,     // Players make ~70% of free throws
-        thetaStrength: 5,   // Weaker prior - more uncertainty
-        alphaMean: 0.2,     // Prior belief in hot hand
-        alphaStrength: 3    // Weak prior - learn from data
-    },
-    'weather': {
-        thetaMean: 0.6,     // Base rate of sunny days
-        thetaStrength: 8,   // Medium strength prior
-        alphaMean: 0.3,     // Strong weather persistence
-        alphaStrength: 5    // Medium prior
+        thetaMean: 0.5,     
+        thetaStrength: 5,   // Weaker prior
+        alphaMean: 0.4,     // Strong streak dependency
+        alphaStrength: 2,   // Weak prior - learn from data
+        streakWeight: 0.4   // Higher impact of streaks
     }
 };
 
 // Generate a sequence with dependencies
-var generateDependentSequence = function(theta, alpha, length) {
-    var generator = function(n) {
-        var prevOutcome = n == 0 ? flip(theta) :
-        flip(adjustProb(theta, alpha, generator(n-1)));
-        return prevOutcome;
-    };
-
-    return map(function(i) { 
-        return generator(i);
-    }, _.range(length));
-};
-  
-// Get beta distribution parameters from mean and strength
-var getBetaParams = function(mean, strength) {
-    var a = mean * strength;
-    var b = (1 - mean) * strength;
-    return {a: a, b: b};
-};
-  
-// Inference model with domain-specific priors
-var inferParams = function(observedSequence, domain) {
-    var priors = domainPriors[domain];
-
-    return Infer({method: 'MCMC', samples: 2000}, function() {
-        // Sample parameters from domain-specific priors
-        var thetaParams = getBetaParams(priors.thetaMean, priors.thetaStrength);
-        var theta = beta(thetaParams.a, thetaParams.b);
+var generateDependentSequence = function(theta, alpha, streakWeight, length) {
+    var generator = function(n, acc) {
+        if (n <= 0) return acc;
         
-        // Use a scaled beta for alpha to center it around domain mean
-        var alphaParams = getBetaParams((priors.alphaMean + 0.5)/2, priors.alphaStrength);
-        var alpha = (beta(alphaParams.a, alphaParams.b) * 2 - 1) * 0.5;  // Scale to [-0.5, 0.5]
-        
-        // Generate sequence with these parameters
-        var simulatedSequence = generateDependentSequence(theta, alpha, observedSequence.length);
-        
-        // Condition on matching the observed sequence
-        factor(sum(map2(
-        function(sim, obs) {
-            return sim == obs ? 0 : -1;
-        },
-        simulatedSequence,
-        observedSequence
-        )));
-        
-        return {theta: theta, alpha: alpha};
-    });
-};
-  
-// Function to make predictions about next outcome
-var predictNext = function(sequence, domain) {
-    var posterior = inferParams(sequence, domain);
-
-    return expectation(posterior, function(params) {
-        var prevOutcome = sequence[sequence.length - 1];
-        var prob = adjustProb(params.theta, params.alpha, prevOutcome);
-        return prob;
-    });
-};
-  
-// Get confidence in prediction (uncertainty)
-var getPredictionConfidence = function(sequence, domain) {
-    var posterior = inferParams(sequence, domain);
-
-    var predictions = repeat(100, function() {
-        var params = sample(posterior);
-        var prevOutcome = sequence[sequence.length - 1];
-        return adjustProb(params.theta, params.alpha, prevOutcome);
-    });
-
-    return {
-        mean: sum(predictions) / predictions.length,
-        variance: sum(map(function(x) { 
-            return Math.pow(x - (sum(predictions) / predictions.length), 2);
-        }, predictions)) / predictions.length
-    };
-};
-
-// Analyze streak patterns in sequence
-var analyzeStreaks = function(sequence, domain) {
-    var posterior = inferParams(sequence, domain);
-    
-    // Get runs of true and false
-    var getRuns = function(seq) {
-        var helper = function(index, currentValue, currentLength, accumulatedRuns) {
-            if (index >= seq.length) {
-                return accumulatedRuns.concat([{value: currentValue, length: currentLength}]);
-            }
+        var recentOutcomes = acc.slice(Math.max(0, acc.length-3));
+        var adjustedTheta = acc.length === 0 ? 
+            theta : 
+            adjustProb(theta, alpha, streakWeight, recentOutcomes);
             
-            if (seq[index] === currentValue) {
-                return helper(index + 1, currentValue, currentLength + 1, accumulatedRuns);
-            } else {
-                return helper(index + 1, seq[index], 1, 
-                            accumulatedRuns.concat([{value: currentValue, length: currentLength}]));
-            }
-        };
-        
-        if (seq.length === 0) return [];
-        return helper(1, seq[0], 1, []);
+        var newOutcome = flip(adjustedTheta);
+        return generator(n-1, acc.concat([newOutcome]));
     };
     
-    var runs = getRuns(sequence);
+    return generator(length, []);
+};
+
+// Model for predicting next outcome given sequence
+var predictNext = function(sequence, domain) {
+    var priors = domainPriors[domain];
     
-    // Analyze each run
-    var runAnalysis = map(function(run) {
-        var predictionAfterRun = expectation(posterior, function(params) {
-            return adjustProb(params.theta, params.alpha, run.value);
+    return Infer({method: 'MCMC', samples: 2000}, function() {
+        var theta = beta(priors.thetaMean * priors.thetaStrength, 
+                        (1-priors.thetaMean) * priors.thetaStrength);
+        var alpha = beta(priors.alphaMean * priors.alphaStrength,
+                        (1-priors.alphaMean) * priors.alphaStrength);
+        
+        // Generate multiple sequences
+        var numSimulations = 10;
+        var simulatedSeqs = repeat(numSimulations, function() {
+            return generateDependentSequence(theta, alpha, priors.streakWeight, sequence.length);
         });
         
-        return {
-            type: run.value ? "success" : "failure",
-            length: run.length,
-            predictionAfter: predictionAfterRun
+        // Compare with observed sequence
+        var matchScore = sum(map(function(simSeq) {
+            return sum(map2(function(sim, obs) {
+                return sim === obs ? 0 : -1;
+            }, simSeq, sequence));
+        }, simulatedSeqs)) / numSimulations;
+        
+        factor(matchScore);
+        
+        // Predict next outcome
+        var recentOutcomes = sequence.slice(Math.max(0, sequence.length-3));
+        var nextProb = adjustProb(theta, alpha, priors.streakWeight, recentOutcomes);
+        return flip(nextProb);
+    });
+};
+
+// Helper functions for classification
+var getMaxInArray = function(arr) {
+    return reduce(function(acc, val) {
+        return val > acc ? val : acc;
+    }, arr[0], arr.slice(1));
+};
+
+var countConsecutive = function(arr) {
+    var helper = function(index, currentVal, currentStreak, streaks) {
+        if (index >= arr.length) {
+            return append(streaks, currentStreak);
+        }
+        if (arr[index] === currentVal) {
+            return helper(index + 1, currentVal, currentStreak + 1, streaks);
+        }
+        return helper(index + 1, arr[index], 1, append(streaks, currentStreak));
+    };
+    
+    if (arr.length === 0) return [];
+    return helper(1, arr[0], 1, []);
+};
+
+// Modified sequence classification model
+var classifySequence = function(sequence) {
+    return Infer({method: 'MCMC', samples: 2000}, function() {
+        var domain = flip(0.5) ? 'coin' : 'basketball';
+        var priors = domainPriors[domain];
+        
+        // Calculate streakiness score using functional approach
+        var streakScore = function(seq) {
+            var streaks = countConsecutive(seq);
+            return streaks.length > 0 ? getMaxInArray(streaks) : 0;
         };
-    }, runs);
-    
-    console.log("\nStreak Analysis for " + domain + ":");
-    map(function(run) {
-        console.log("After " + run.length + " " + run.type + "(s): " + 
-                    "Predicted prob = " + run.predictionAfter.toFixed(3));
-    }, runAnalysis);
-    
-    return runAnalysis;
+        
+        var observedStreakiness = streakScore(sequence);
+        
+        // Generate and evaluate sequences
+        var numSimulations = 10;
+        var simulatedStreaks = repeat(numSimulations, function() {
+            var simSeq = generateDependentSequence(
+                beta(priors.thetaMean * priors.thetaStrength,
+                     (1-priors.thetaMean) * priors.thetaStrength),
+                beta(priors.alphaMean * priors.alphaStrength,
+                     (1-priors.alphaMean) * priors.alphaStrength),
+                priors.streakWeight,
+                sequence.length
+            );
+            return streakScore(simSeq);
+        });
+        
+        var avgSimStreak = sum(simulatedStreaks) / numSimulations;
+        var streakDiff = Math.abs(observedStreakiness - avgSimStreak);
+        
+        // Score based on domain expectations
+        var streakFactor = domain === 'basketball' ? 
+            2 * observedStreakiness - streakDiff :  // Prefer streaky sequences for basketball
+            -2 * observedStreakiness - streakDiff;  // Prefer alternating sequences for coin
+            
+        factor(streakFactor);
+        
+        return domain;
+    });
 };
-  
-// Modify testAcrossDomains to include streak analysis
-var testAcrossDomains = function() {
-    var domains = ['coin', 'basketball', 'weather'];
+
+
+// Calculate streakiness score
+var getStreakiness = function(sequence) {
+    var helper = function(i, currentRun, runs) {
+        if (i >= sequence.length) return runs.concat([currentRun]);
+        if (sequence[i] === sequence[i-1]) {
+            return helper(i+1, currentRun+1, runs);
+        }
+        return helper(i+1, 1, runs.concat([currentRun]));
+    };
     
-    map(function(domain) {
-      console.log("\nTesting " + domain + " domain:");
-      
-      // Generate sequence using domain priors
-      var priors = domainPriors[domain];
-      var trueTheta = beta(priors.thetaMean * 20, (1-priors.thetaMean) * 20);
-      var trueAlpha = priors.alphaMean;
-      
-      var testSequence = generateDependentSequence(trueTheta, trueAlpha, 10);
-      console.log("Sequence: " + testSequence);
-      
-      // Get predictions
-      var nextProb = predictNext(testSequence, domain);
-      var confidence = getPredictionConfidence(testSequence, domain);
-      
-      console.log("Prediction for next outcome: " + nextProb.toFixed(3));
-      console.log("Prediction confidence: " + confidence.variance.toFixed(3));
-      
-      // Add streak analysis
-      analyzeStreaks(testSequence, domain);
-      
-    }, domains);
+    if (sequence.length === 0) return 0;
+    var runs = helper(1, 1, []);
+    return sum(runs) / runs.length;
 };
-  
+
+// Test sequences
+var testSequences = [
+    [true, true, false, false, true, false, true, false, false, true],  // alternating
+    [true, true, true, false, false, true, true, false, false, false]   // streaky
+];
+
 // Run tests
-testAcrossDomains();
+map(function(sequence) {
+    console.log("\nTesting sequence: " + sequence);
+    console.log("Streakiness score: " + getStreakiness(sequence));
+    
+    var classification = classifySequence(sequence);
+    var bballProb = expectation(classification, function(x) { return x === 'basketball' ? 1 : 0; });
+    console.log("Probability it's basketball: " + bballProb.toFixed(3));
+    
+    var coinPred = predictNext(sequence, 'coin');
+    var coinProb = expectation(coinPred, function(x) { return x ? 1 : 0; });
+    console.log("If coin, probability of True: " + coinProb.toFixed(3));
+    
+    var bballPred = predictNext(sequence, 'basketball');
+    var bballNextProb = expectation(bballPred, function(x) { return x ? 1 : 0; });
+    console.log("If basketball, probability of True: " + bballNextProb.toFixed(3));
+}, testSequences);
 
-// Add this function to our code:
+// Helper function and domain priors remain the same...
 
-// Modify our runExperiment function to output less verbose results
-var runExperiment = function(params) {
-    var results = [];
-    var domains = ['coin', 'basketball', 'weather'];
-    var sequenceLengths = [5, 10];  // Reduced to 5 and 10 for clarity
-    var repetitions = 3;  // Reduced to 3 repetitions
-    
-    map(function(domain) {
-        map(function(length) {
-            repeat(repetitions, function() {
-                var priors = domainPriors[domain];
-                var trueTheta = beta(priors.thetaMean * 20, (1-priors.thetaMean) * 20);
-                var trueAlpha = priors.alphaMean;
-                var sequence = generateDependentSequence(trueTheta, trueAlpha, length);
-                var prediction = predictNext(sequence, domain);
-                var confidence = getPredictionConfidence(sequence, domain);
-                
-                // Store more concise results
-                results.push({
-                    domain: domain,
-                    length: length,
-                    sequence: sequence,
-                    prediction: prediction.toFixed(3),
-                    confidence: confidence.variance.toFixed(3)
-                });
-            });
-        }, sequenceLengths);
-    }, domains);
-    
-    // Print results in a more readable format
-    console.log("=== EXPERIMENT RESULTS ===");
-    map(function(result) {
-        console.log("\nDomain: " + result.domain);
-        console.log("Length: " + result.length);
-        console.log("Sequence: " + result.sequence);
-        console.log("Next prediction: " + result.prediction);
-        console.log("Confidence: " + result.confidence);
-        console.log("---");
-    }, results);
-    
-    return results;
+// Define the exact sequences from our human experiments
+var experimentSequences = {
+    sequential: [
+        {sequence: [true, false, false, true, false, true, true, true, false, false]},
+        {sequence: [false, true, false, false, true, false, true, true, false, true]}
+    ],
+    classification: {
+        alternating: [
+            [true, false, true, false, true, false, true, false, true, false],
+            [true, true, false, false, true, false, true, false, false, true]
+        ],
+        streaky: [
+            [true, true, true, false, false, true, true, false, false, false],
+            [true, true, true, true, true, false, false, false, false, false]
+        ]
+    }
 };
 
-// Run experiment with reduced output
-runExperiment();
+// Run model for sequential predictions
+var getSequentialPredictions = function(sequence) {
+    var predictions = map(function(i) {
+        if (i === 0) return null;  // Skip first position as in human experiment
+        
+        // Get sequence up to current position
+        var prevSequence = sequence.slice(0, i);
+        
+        // Get model predictions for both domains
+        var coinPred = expectation(predictNext(prevSequence, 'coin'));
+        var bballPred = expectation(predictNext(prevSequence, 'basketball'));
+        
+        return {
+            position: i,
+            prevSequence: prevSequence,
+            coinPrediction: coinPred,
+            basketballPrediction: bballPred
+        };
+    }, _.range(sequence.length));
+    
+    return predictions;
+};
+
+// Run model for domain classification
+var getSequenceClassification = function(sequence) {
+    var classification = classifySequence(sequence);
+    var bballProb = expectation(classification, function(x) { return x === 'basketball' ? 1 : 0; });
+    var streakiness = getStreakiness(sequence);
+    
+    return {
+        basketballProb: bballProb,
+        streakiness: streakiness
+    };
+};
+
+// Generate samples from prior distributions - reduced from 1000 to 100 samples
+var generatePriorSamples = function(domainPriors) {
+    var domains = ['coin', 'basketball'];
+    var coinPriors = domainPriors['coin'];
+    var bballPriors = domainPriors['basketball'];
+    
+    return {
+        coin_theta: repeat(100, function() {  // Reduced from 1000
+            return beta(coinPriors.thetaMean * coinPriors.thetaStrength, 
+                       (1-coinPriors.thetaMean) * coinPriors.thetaStrength);
+        }),
+        coin_alpha: repeat(100, function() {  // Reduced from 1000
+            return beta(coinPriors.alphaMean * coinPriors.alphaStrength,
+                       (1-coinPriors.alphaMean) * coinPriors.alphaStrength);
+        }),
+        basketball_theta: repeat(100, function() {  // Reduced from 1000
+            return beta(bballPriors.thetaMean * bballPriors.thetaStrength, 
+                       (1-bballPriors.thetaMean) * bballPriors.thetaStrength);
+        }),
+        basketball_alpha: repeat(100, function() {  // Reduced from 1000
+            return beta(bballPriors.alphaMean * bballPriors.alphaStrength,
+                       (1-bballPriors.alphaMean) * bballPriors.alphaStrength);
+        })
+    };
+};
+
+// Analyze probability adjustments - reduced range from 10 to 6
+var analyzeProbabilityAdjustments = function(domain) {
+    var priors = domainPriors[domain];
+    var theta = beta(priors.thetaMean * priors.thetaStrength, 
+                    (1-priors.thetaMean) * priors.thetaStrength);
+    var alpha = beta(priors.alphaMean * priors.alphaStrength,
+                    (1-priors.alphaMean) * priors.alphaStrength);
+    
+    return {
+        success_streaks: map(function(length) {
+            var sequence = repeat(length, function() { return true; });
+            return adjustProb(theta, alpha, priors.streakWeight, sequence);
+        }, _.range(1, 7)),  // Reduced from 11 to 7 (streaks of length 1-6)
+        failure_streaks: map(function(length) {
+            var sequence = repeat(length, function() { return false; });
+            return adjustProb(theta, alpha, priors.streakWeight, sequence);
+        }, _.range(1, 7))   // Reduced from 11 to 7
+    };
+};
+
+// Analyze sequence characteristics - simplified output format
+var analyzeSequenceCharacteristics = function(sequence) {
+    var streaks = countConsecutive(sequence);
+    return {
+        streakiness: streaks.length > 0 ? sum(streaks) / streaks.length : 0,
+        maxStreak: streaks.length > 0 ? getMaxInArray(streaks) : 0,
+        // Removed proportionTrue and numTransitions as they're less essential
+    };
+};
+
+// Results object
+var results = {
+    sequentialPredictions: map(function(seqData) {
+        return {
+            sequence: seqData.sequence,
+            predictions: map(function(i) {
+                if (i === 0) return null;
+                var prevSequence = seqData.sequence.slice(0, i);
+                return {
+                    position: i,
+                    prevSequence: prevSequence,
+                    coinPrediction: expectation(predictNext(prevSequence, 'coin')),
+                    basketballPrediction: expectation(predictNext(prevSequence, 'basketball'))
+                };
+            }, _.range(seqData.sequence.length))
+        };
+    }, experimentSequences.sequential),
+    
+    classificationPredictions: {
+        alternating: map(function(seq) {
+            var classification = classifySequence(seq);
+            return {
+                sequence: seq,
+                basketballProb: expectation(classification, function(x) { 
+                    return x === 'basketball' ? 1 : 0;
+                })
+            };
+        }, experimentSequences.classification.alternating),
+        
+        streaky: map(function(seq) {
+            var classification = classifySequence(seq);
+            return {
+                sequence: seq,
+                basketballProb: expectation(classification, function(x) { 
+                    return x === 'basketball' ? 1 : 0;
+                })
+            };
+        }, experimentSequences.classification.streaky)
+    },
+    
+    modelInternals: {
+        priorDistributions: generatePriorSamples(domainPriors),
+        probabilityAdjustments: {
+            coin: analyzeProbabilityAdjustments('coin'),
+            basketball: analyzeProbabilityAdjustments('basketball')
+        },
+        sequenceCharacteristics: {
+            alternating: map(analyzeSequenceCharacteristics,
+                experimentSequences.classification.alternating),
+            streaky: map(analyzeSequenceCharacteristics,
+                experimentSequences.classification.streaky)
+        }
+    }
+};
+
+// Print results
+console.log("=== MODEL PREDICTIONS ===");
+console.log(JSON.stringify(results, null, 2));
