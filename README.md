@@ -5,8 +5,8 @@ This repo contains the code for our 9.66 final project. Our project looks at how
 ## Project Overview
 
 The project investigates two main questions:
-1. How do people's prior beliefs about a process (random vs. skill-based) influence their predictions about future outcomes?
-2. How do these beliefs influence their ability to classify sequences as random or non-random?
+1. How do people's prior beliefs about a process (luck-based vs. skill-based) influence their predictions about future outcomes?
+2. How do these beliefs influence their ability to classify sequences as originating from a luck-based or skill-based process?
 
 The study combines empirical data collection with computational modeling using WebPPL to understand human judgment patterns in sequential events.
 
@@ -75,10 +75,10 @@ scipy
 3. Run the WebPPL model:
    ```bash
    cd models/webppl
-   webppl base_model.wppl > ../../results/model_predictions.json
+   webppl base_model.wppl
    ```
 
-4. Run the analysis script:
+4. Run the analysis script (after copying JSON string output from base_model.wppl to results/model_predictions.json):
    ```bash
    python analysis/analyze_results.py
    ```
@@ -87,13 +87,13 @@ The analysis script will generate several visualizations in the `results` direct
 - `streak_analysis.png`: Analysis of how streak length affects predictions
 - `transition_analysis.png`: Analysis of prediction changes based on previous outcomes
 - `sequence_classification.png`: Comparison of sequence classification results
-- `streak_correlation.png`: Correlation between streak length and predictions
+- `streak_correlation.png`: Correlation between streak length and predictions (not used in report)
 
 ## Model Details
 
 The computational model implements two key cognitive processes:
 - Predicting the next outcome in a sequence
-- Classifying sequences as random (coin flips) or skill-based (basketball shots)
+- Classifying sequences as luck-based (coin flips) or skill-based (basketball shots)
 
 The model uses Bayesian principles and incorporates:
 - Beta distributions for modeling beliefs about success probability
